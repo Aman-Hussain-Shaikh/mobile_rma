@@ -1,4 +1,4 @@
-import { Text, View, TextInput, StyleSheet, TouchableOpacity } from "react-native";
+import { Text, View, TextInput, StyleSheet, TouchableOpacity, Linking } from "react-native";
 import Avatar from "../../assets/images/HomeScreen/Avatar.svg";
 import Hamburger from "../../assets/images/HomeScreen/HameBurger_3Line.svg";
 import NewRequest from "../../assets/images/HomeScreen/NewRequest.svg";
@@ -24,7 +24,6 @@ import X from "../../assets/images/HomeScreen/X.svg";
 import Sidebar from "@/components/Sidebar";
 import React, { useEffect, useState } from "react";
 import { Checkbox, Button } from "react-native-paper";
-// import "../global.css";
 import { Link } from "expo-router";
 import { withSidebar } from '@/components/Sidebar';
 import { useDispatch } from 'react-redux';
@@ -34,23 +33,18 @@ import { router } from 'expo-router';
 import { LogBox } from 'react-native';
 import { useSelector } from 'react-redux';
 
-
 interface RootState {
     user: {
         firstname: string;
-
     };
 }
 
 const Home = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
     const firstname = useSelector((state: RootState) => state?.user?.firstname)
-    // console.log("FIRST NAME : ", firstname)
 
     const getGreeting = () => {
-        const currentHour = new Date().getHours(); // Get current hour in 24-hour format
-
+        const currentHour = new Date().getHours();
         if (currentHour >= 5 && currentHour < 12) {
             return "Good Morning";
         } else if (currentHour >= 12 && currentHour < 17) {
@@ -61,16 +55,27 @@ const Home = () => {
             return "Good Night";
         }
     };
+
+
+    const handleCallUs = () => {
+        Linking.openURL(`tel:+917319345359`);
+    };
+
+    const handleEmailUs = () => {
+        Linking.openURL(`mailto:example@gmail.com`);
+    };
+
     const MainContent = React.memo(() => (
         <View className="bg-[#1F486B] flex flex-1 flex-col ">
             <View className="h-44  ">
                 <View className="flex flex-1 flex-row  justify-between  ">
-
                     <View className="flex flex-row ml-3 mt-4   ">
-                        <Link href="/Profile">
-                            <View className="flex mt-3 pt-2">
-                                <Avatar width={37} height={37} className="border border-gray-300" />
-                            </View>
+                        <Link href="/Profile" asChild>
+                            <TouchableOpacity activeOpacity={0.7}>
+                                <View className="flex mt-0 pt-2">
+                                    <Avatar width={37} height={37} className="border border-gray-300" />
+                                </View>
+                            </TouchableOpacity>
                         </Link>
                         <View className="flex ml-3">
                             <Text className="text-[#9DFE01] text-lg font-roboto">{getGreeting()}</Text>
@@ -81,81 +86,143 @@ const Home = () => {
                     {/* Hamburger Menu Button */}
                     <TouchableOpacity
                         onPress={() => setIsSidebarOpen(true)}
-                        className="mr-5 mt-6 p-2" // Added padding for better touch target
-                        activeOpacity={0.7} // Added feedback for touch
+                        className="mr-5 mt-6 p-2"
+                        activeOpacity={0.7}
                     >
                         <Hamburger width={27} height={27} className="border border-gray-300" />
                     </TouchableOpacity>
                 </View>
 
                 <View className="flex flex-row  flex-1 mt-16 justify-evenly">
-                    <Link href="/ServiceRequest">
-                        <View className="flex flex-col items-center">
-                            <View className="bg-[#9DFE01] h-20 w-20 flex items-center justify-center rounded-2xl mb-2 ">
-                                <NewRequest width={36} height={36} className="border border-gray-300" />
+                    <Link href="/ServiceRequest" asChild>
+                        <TouchableOpacity activeOpacity={0.7}>
+                            <View className="flex flex-col items-center">
+                                <View className="bg-[#9DFE01] h-20 w-20 flex items-center justify-center rounded-2xl mb-2"
+                                    style={{
+                                        shadowColor: '#000',
+                                        shadowOffset: { width: 0, height: 4 },
+                                        shadowOpacity: 0.3,
+                                        shadowRadius: 5,
+                                        elevation: 5,
+                                        borderWidth: 1,
+                                        borderColor: '#1F486B'
+                                    }}>
+                                    <NewRequest width={36} height={36} className="border border-gray-300" />
+                                </View>
+                                <Text className="text-[#9DFE01] text-base">New Request</Text>
                             </View>
-                            <Text className="text-[#9DFE01] text-base">New Request</Text>
-                        </View>
+                        </TouchableOpacity>
                     </Link>
-                    <Link href="/RMAStatus">
-                        <View className="flex flex-col items-center">
-                            <View className="bg-[#9DFE01] h-20 w-20 flex items-center justify-center rounded-2xl mb-2 ">
-                                <RequestCheck width={36} height={36} className="border border-gray-300" />
+                    <Link href="/RMAStatus" asChild>
+                        <TouchableOpacity activeOpacity={0.7}>
+                            <View className="flex flex-col items-center">
+                                <View className="bg-[#9DFE01] h-20 w-20 flex items-center justify-center rounded-2xl mb-2"
+                                    style={{
+                                        shadowColor: '#000',
+                                        shadowOffset: { width: 0, height: 4 },
+                                        shadowOpacity: 0.3,
+                                        shadowRadius: 5,
+                                        elevation: 5,
+                                        borderWidth: 1,
+                                        borderColor: '#1F486B'
+                                    }}>
+                                    <RequestCheck width={36} height={36} className="border border-gray-300" />
+                                </View>
+                                <Text className="text-[#9DFE01] text-base">Request Check</Text>
                             </View>
-                            <Text className="text-[#9DFE01] text-base">Request Check</Text>
-                        </View>
+                        </TouchableOpacity>
                     </Link>
-                    <Link href="/Warrantycheck">
-                        <View className="flex flex-col items-center">
-                            <View className="bg-[#9DFE01] h-20 w-20 flex items-center justify-center rounded-2xl mb-2 ">
-                                <WarrantyCheck width={36} height={36} className="border border-gray-300" />
+                    <Link href="/Warrantycheck" asChild>
+                        <TouchableOpacity activeOpacity={0.7}>
+                            <View className="flex flex-col items-center">
+                                <View className="bg-[#9DFE01] h-20 w-20 flex items-center justify-center rounded-2xl mb-2"
+                                    style={{
+                                        shadowColor: '#000',
+                                        shadowOffset: { width: 0, height: 4 },
+                                        shadowOpacity: 0.3,
+                                        shadowRadius: 5,
+                                        elevation: 5,
+                                        borderWidth: 1,
+                                        borderColor: '#1F486B'
+                                    }}>
+                                    <WarrantyCheck width={36} height={36} className="border border-gray-300" />
+                                </View>
+                                <Text className="text-[#9DFE01] text-base">Warranty Check</Text>
                             </View>
-                            <Text className="text-[#9DFE01] text-base">Warranty Check</Text>
-                        </View>
+                        </TouchableOpacity>
                     </Link>
                 </View>
             </View>
 
             {/* BG White Below */}
-
             <View className="mt-24 h-screen flex flex-col bg-white rounded-t-[2.5rem] border">
                 <View className="flex flex-row  justify-evenly mt-10 ">
-                    <View className="flex flex-col items-center">
-                        <Link href="/RMAPolicy">
-                            <View className="bg-[#1F486B] h-36 w-28 flex items-center justify-center rounded-2xl mb-2 ">
-                                <View className="rounded-full bg-[#9DFE01] p-4">
-                                    <RMAPolicy width={36} height={36} className="border border-gray-300" />
+                    <Link href="/WarrantyPolicy" asChild>
+                        <TouchableOpacity activeOpacity={0.7}>
+                            <View className="flex flex-col items-center">
+                                <View className="bg-[#1F486B] h-36 w-28 flex items-center justify-center rounded-2xl mb-2"
+                                    style={{
+                                        shadowColor: '#000',
+                                        shadowOffset: { width: 0, height: 4 },
+                                        shadowOpacity: 0.3,
+                                        shadowRadius: 5,
+                                        elevation: 5,
+                                        borderWidth: 1,
+                                        borderColor: '#9DFE01'
+                                    }}>
+                                    <View className="rounded-full bg-[#9DFE01] p-4">
+                                        <RMAPolicy width={36} height={36} className="border border-gray-300" />
+                                    </View>
+                                    <Text className="text-[#9DFE01] text-base mt-2">Warranty</Text>
                                 </View>
-                                <Text className="text-[#9DFE01] text-base mt-2">RMA Policy</Text>
                             </View>
-                        </Link>
-                    </View>
-                    <Link href="/Contact">
-                        <View className="flex flex-col items-center">
-                            <View className="bg-[#1F486B] h-36 w-28 flex items-center justify-center rounded-2xl mb-2 ">
-                                <View className="rounded-full bg-[#9DFE01] p-4">
-                                    <ContactUs width={36} height={36} className="border border-gray-300" />
-                                </View>
-                                <Text className="text-[#9DFE01] text-base mt-2">Contact Us</Text>
-                            </View>
-                        </View>
+                        </TouchableOpacity>
                     </Link>
-
-                    <Link href="/Feedback">
-                        <View className="flex flex-col items-center">
-                            <View className="bg-[#1F486B] h-36 w-28 flex items-center justify-center rounded-2xl mb-2 ">
-                                <View className="rounded-full bg-[#9DFE01] p-4">
-                                    <FeedBack width={36} height={36} className="border border-gray-300" />
+                    <Link href="/Contact" asChild>
+                        <TouchableOpacity activeOpacity={0.7}>
+                            <View className="flex flex-col items-center">
+                                <View className="bg-[#1F486B] h-36 w-28 flex items-center justify-center rounded-2xl mb-2"
+                                    style={{
+                                        shadowColor: '#000',
+                                        shadowOffset: { width: 0, height: 4 },
+                                        shadowOpacity: 0.3,
+                                        shadowRadius: 5,
+                                        elevation: 5,
+                                        borderWidth: 1,
+                                        borderColor: '#9DFE01'
+                                    }}>
+                                    <View className="rounded-full bg-[#9DFE01] p-4">
+                                        <ContactUs width={36} height={36} className="border border-gray-300" />
+                                    </View>
+                                    <Text className="text-[#9DFE01] text-base mt-2">Contact Us</Text>
                                 </View>
-                                <Text className="text-[#9DFE01] text-base mt-2">Feedback</Text>
                             </View>
-                        </View>
+                        </TouchableOpacity>
+                    </Link>
+                    <Link href="/Feedback" asChild>
+                        <TouchableOpacity activeOpacity={0.7}>
+                            <View className="flex flex-col items-center">
+                                <View className="bg-[#1F486B] h-36 w-28 flex items-center justify-center rounded-2xl mb-2"
+                                    style={{
+                                        shadowColor: '#000',
+                                        shadowOffset: { width: 0, height: 4 },
+                                        shadowOpacity: 0.3,
+                                        shadowRadius: 5,
+                                        elevation: 5,
+                                        borderWidth: 1,
+                                        borderColor: '#9DFE01'
+                                    }}>
+                                    <View className="rounded-full bg-[#9DFE01] p-4">
+                                        <FeedBack width={36} height={36} className="border border-gray-300" />
+                                    </View>
+                                    <Text className="text-[#9DFE01] text-base mt-2">Feedback</Text>
+                                </View>
+                            </View>
+                        </TouchableOpacity>
                     </Link>
                 </View>
 
                 {/* Subscribe */}
-
-
                 <View className="bg-[#1F486B] rounded-3xl mx-2 py-4 flex flex-col border">
                     <View className="px-4">
                         <Text className="text-xs text-[#9DFE01] mb-6 ">
@@ -163,7 +230,6 @@ const Home = () => {
                         </Text>
                         <View className="flex flex-row items-center space-x-2">
                             <View className="flex-1 relative">
-                                {/* Label without z-10 */}
                                 <View className="absolute -top-5 left-2 bg-[#1F486B] px-2">
                                     <Text className="text-[#9DFE01] text-xs font-bold ">Enter Your Email-Id</Text>
                                 </View>
@@ -176,7 +242,10 @@ const Home = () => {
                                     />
                                 </View>
                             </View>
-                            <TouchableOpacity className="p-2">
+                            <TouchableOpacity
+                                activeOpacity={0.7}
+                                className="p-2"
+                            >
                                 <SendIcon className="w-6 h-6 text-[#9DFE01]" />
                             </TouchableOpacity>
                         </View>
@@ -184,37 +253,43 @@ const Home = () => {
                 </View>
 
                 {/* Below Subscribe Email  */}
-
                 <View className="flex flex-col mt-2 ">
                     <Text className="text-[#1F486B] text-2xl ml-8 font-medium my-2">Connect Us</Text>
                     <View className="flex flex-row  justify-evenly">
-                        <View className="flex flex-col items-center">
-                            <View className="bg-[rgba(31,72,107,0.4)]  h-28 w-28 flex items-center justify-center rounded-2xl mb-2 ">
-                                <View className="">
-                                    <Contact_Us width={40} height={40} className="border border-gray-300" />
+                        <TouchableOpacity activeOpacity={0.7} onPress={handleCallUs}>
+                            <View className="flex flex-col items-center">
+                                <View className="bg-[rgba(31,72,107,0.4)]  h-28 w-28 flex items-center justify-center rounded-2xl mb-2 ">
+                                    <View className="">
+                                        <Contact_Us width={40} height={40} className="border border-gray-300" />
+                                    </View>
+                                    <Text className="text-[#1F486B] text-lg mt-2">Call Us</Text>
+                                    {/* <Text className="text-[#1F486B] text-xs">+91 7319345359</Text> */}
                                 </View>
-                                <Text className="text-[#1F486B] text-lg mt-2">Call Us</Text>
                             </View>
-                        </View>
+                        </TouchableOpacity>
 
-                        <View className="flex flex-col items-center">
-                            <View className="bg-[rgba(31,72,107,0.4)]  h-28 w-28 flex items-center justify-center rounded-2xl mb-2 ">
-                                <View className="">
-                                    <EmailUs width={40} height={40} className="border border-gray-300" />
+                        <TouchableOpacity activeOpacity={0.7} onPress={handleEmailUs}>
+                            <View className="flex flex-col items-center">
+                                <View className="bg-[rgba(31,72,107,0.4)]  h-28 w-28 flex items-center justify-center rounded-2xl mb-2 ">
+                                    <View className="">
+                                        <EmailUs width={40} height={40} className="border border-gray-300" />
+                                    </View>
+                                    <Text className="text-[#1F486B] text-lg mt-2">Email Us</Text>
+                                    {/* <Text className="text-[#1F486B] text-xs">example@gmail.com</Text> */}
                                 </View>
-                                <Text className="text-[#1F486B] text-lg mt-2">Email Us</Text>
                             </View>
-                        </View>
+                        </TouchableOpacity>
 
-                        <View className="flex flex-col items-center">
-                            <View className="bg-[rgba(31,72,107,0.4)]  h-28 w-28 flex items-center justify-center rounded-2xl mb-2 ">
-                                <View className="">
-                                    <LiveChat width={40} height={40} className="border border-gray-300" />
+                        <TouchableOpacity activeOpacity={0.7}>
+                            <View className="flex flex-col items-center">
+                                <View className="bg-[rgba(31,72,107,0.4)]  h-28 w-28 flex items-center justify-center rounded-2xl mb-2 ">
+                                    <View className="">
+                                        <LiveChat width={40} height={40} className="border border-gray-300" />
+                                    </View>
+                                    <Text className="text-[#1F486B] text-lg mt-2">Live Chat</Text>
                                 </View>
-                                <Text className="text-[#1F486B] text-lg mt-2">Live Chat</Text>
                             </View>
-                        </View>
-
+                        </TouchableOpacity>
                     </View>
                 </View>
 
@@ -225,36 +300,26 @@ const Home = () => {
                 </View>
 
                 <View className="h-10 flex-1 mt-1 flex flex-row justify-center ">
-                    <View className="mx-2">
-
+                    <TouchableOpacity activeOpacity={0.7} className="mx-2">
                         <Facebook width={26} height={26} className="border  " />
-                    </View>
-                    <View className="mx-2">
-
+                    </TouchableOpacity>
+                    <TouchableOpacity activeOpacity={0.7} className="mx-2">
                         <Youtube width={26} height={26} className="border  " />
-                    </View>
-                    <View className="mx-2">
-
+                    </TouchableOpacity>
+                    <TouchableOpacity activeOpacity={0.7} className="mx-2">
                         <Instagram width={26} height={26} className="border  " />
-                    </View>
-                    <View className="mx-2">
-
+                    </TouchableOpacity>
+                    <TouchableOpacity activeOpacity={0.7} className="mx-2">
                         <X width={26} height={26} className="border  " />
-                    </View>
-
-
+                    </TouchableOpacity>
                 </View>
-
             </View>
         </View>
     ));
 
     return (
         <View style={styles.container}>
-            {/* Main Content */}
             <MainContent />
-
-            {/* Sidebar */}
             <Sidebar
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
@@ -263,13 +328,11 @@ const Home = () => {
     );
 };
 
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        position: 'relative', // This ensures proper stacking of sidebar over content
+        position: 'relative',
     },
 });
 
-// Export the component wrapped with the sidebar HOC
 export default Home;

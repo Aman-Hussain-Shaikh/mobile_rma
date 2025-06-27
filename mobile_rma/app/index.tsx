@@ -54,34 +54,34 @@ export default function index(): React.JSX.Element {
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
 
   // Toast message handler for error display
-const toastStyles = StyleSheet.create({
-  text1Style: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: 'black',
-  },
-  text2Style: {
-    fontSize: 14, // Increased size for text2
-    color: 'grey',
-    lineHeight: 22, // Adding line height for better readability
-  },
-});
-
-// Then create our properly typed toast function
-const showErrorToast = (message: string) => {
-  Toast.show({
-    type: 'error',
-    text1: 'Login Error',
-    text2: message,
-    position: 'top',
-    visibilityTime: 4000,
-    autoHide: true,
-    topOffset: 50,
-    // Using our defined styles
-    text1Style: toastStyles.text1Style,
-    text2Style: toastStyles.text2Style,
+  const toastStyles = StyleSheet.create({
+    text1Style: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: 'black',
+    },
+    text2Style: {
+      fontSize: 14, // Increased size for text2
+      color: 'grey',
+      lineHeight: 22, // Adding line height for better readability
+    },
   });
-};
+
+  // Then create our properly typed toast function
+  const showErrorToast = (message: string) => {
+    Toast.show({
+      type: 'error',
+      text1: 'Login Error',
+      text2: message,
+      position: 'top',
+      visibilityTime: 4000,
+      autoHide: true,
+      topOffset: 50,
+      // Using our defined styles
+      text1Style: toastStyles.text1Style,
+      text2Style: toastStyles.text2Style,
+    });
+  };
   // Main sign-in handler
   const handleSignIn = async (savedEmail?: string, savedPassword?: string) => {
     const emailToUse = savedEmail || email;
@@ -122,7 +122,7 @@ const showErrorToast = (message: string) => {
         }
 
         dispatch(loginSuccess(response.data));
-        
+
         // Route based on user type
         if (response.data?.userType === "Admin") {
           router.replace("./(auth)/dashboard");
@@ -133,7 +133,7 @@ const showErrorToast = (message: string) => {
     } catch (error: any) {
       console.log("ERROR : ", error.message || error.toString());
       let errorMessage = 'An unexpected error occurred';
-      
+
       // Specific error handling
       if (error.response?.status === 401) {
         errorMessage = "Wrong credentials!";
@@ -142,7 +142,7 @@ const showErrorToast = (message: string) => {
       } else if (error.response?.status === 500) {
         errorMessage = 'Server error occurred';
       }
-    
+
       showErrorToast(errorMessage);
       dispatch(loginFail({ error: errorMessage }));
     } finally {
@@ -154,6 +154,9 @@ const showErrorToast = (message: string) => {
     <View className="flex flex-1 items-center justify-center bg-white">
       <Logo width={150} height={150} className="border border-gray-300" />
       <Text className="text-[#1F486B] text-4xl font-bold font-serif mt-4">
+        RMA
+      </Text>
+      <Text className="text-[#1F486B] text-3xl font-bold font-serif mt-4">
         Sign In
       </Text>
 
@@ -187,11 +190,11 @@ const showErrorToast = (message: string) => {
               onChangeText={setPassword}
               autoCapitalize="none"
             />
-            <Pressable 
+            <Pressable
               onPress={togglePasswordVisibility}
               className="absolute right-4 top-1/2 transform -translate-y-1/2"
             >
-              <MaterialIcons 
+              <MaterialIcons
                 name={showPassword ? "visibility-off" : "visibility"}
                 size={24}
                 color="#1F486B"
@@ -202,7 +205,7 @@ const showErrorToast = (message: string) => {
       </View>
 
       {/* Remember Me and Forgot Password Section */}
-      <View className="flex flex-row justify-between w-11/12 mt-4">
+      <View className="flex flex-row items-center justify-between w-11/12 mt-3">
         <View className="flex flex-row items-center">
           <Checkbox
             status={rememberMe ? "checked" : "unchecked"}

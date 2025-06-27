@@ -1,4 +1,4 @@
-import { Vibration, Animated, Text, View, TextInput, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Modal, Pressable, TouchableWithoutFeedback } from "react-native";
+import { Vibration, Animated, Text, View, TextInput, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Modal, Pressable, TouchableWithoutFeedback, Alert } from "react-native";
 import Avatar from "../assets/images/HomeScreen/Avatar.svg";
 import Hamburger from "../assets/images/HomeScreen/HameBurger_3Line.svg";
 import LeftArrow from '../assets/images/BackButtonLeftArrow.svg';
@@ -48,6 +48,7 @@ const Warrantycheck = () => {
     const [isSearching, setIsSearching] = useState(false);
     const [keyboardVisible, setKeyboardVisible] = useState(false);
     const [torch, setTorch] = useState(false);
+    const [validationError, setValidationError] = useState(''); // New state for validation error
     const animatedValue = useRef(new Animated.Value(0)).current;
 
     // New state variables for camera functionality
@@ -56,8 +57,30 @@ const Warrantycheck = () => {
     const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
     const [permission, requestPermission] = useCameraPermissions();
 
+    // Clear validation error when user starts typing
+    const handleSerialNumberChange = (text: string) => {
+        setSerialNumber(text);
+        if (validationError) {
+            setValidationError('');
+        }
+    };
 
-   
+    // Validation function
+    const validateSerialNumber = (serial: string): { isValid: boolean; error: string } => {
+        if (!serial || serial.trim() === '') {
+            return { isValid: false, error: 'Please enter a serial number' };
+        }
+
+        const trimmedSerial = serial.trim();
+
+        // Check if it's exactly 12 digits
+        if (!/^\d{12}$/.test(trimmedSerial)) {
+            return { isValid: false, error: 'Serial number must be exactly 12 digits' };
+        }
+
+        return { isValid: true, error: '' };
+    };
+
     // Handle barcode scanning
     const handleBarcodeScanned = ({ type, data }) => {
         console.log(`Barcode scan attempt - Type: ${type}, Data: ${data}`);
@@ -78,18 +101,22 @@ const Warrantycheck = () => {
                 Vibration.vibrate(200);
             }
         } else {
-            // Optional: Provide feedback that an invalid barcode was scanned
-            console.log('Invalid barcode format. Expected 12-digit numeric barcode.');
-            // You could show a brief toast message here if desired
+            // Show alert for invalid barcode
+            Alert.alert(
+                'Invalid Barcode',
+                'Please scan a valid 12-digit barcode.',
+                [{ text: 'OK', style: 'default' }]
+            );
         }
     };
-
 
     // Handle scanning confirmation
     const handleScanConfirm = () => {
         setSerialNumber(scannedBarcode || '');
         setScannedBarcode(null);
         setIsModalVisible(false);
+        // Clear any existing validation error
+        setValidationError('');
     };
 
     // Handle scan again
@@ -97,9 +124,6 @@ const Warrantycheck = () => {
         setScannedBarcode(null);
         setIsModalVisible(false);
     };
-
-
-
 
     // Refs
     const inputRef = useRef<TextInput>(null);
@@ -174,6 +198,8 @@ const Warrantycheck = () => {
         }
     );
 
+    console.log("Warranty Result : ", warrantyResult)
+
     // Utility functions
     const getGreeting = () => {
         const currentHour = new Date().getHours();
@@ -201,11 +227,23 @@ const Warrantycheck = () => {
         return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
     };
 
+    // Updated handleSearchPress with validation
     const handleSearchPress = () => {
-        if (serialNumber.trim()) {
-            setSearchTriggered(true);
-            Keyboard.dismiss();
+        const validation = validateSerialNumber(serialNumber);
+
+        if (!validation.isValid) {
+            setValidationError(validation.error);
+            // Optionally vibrate on error (for mobile feedback)
+            if (Platform.OS === 'ios' || Platform.OS === 'android') {
+                Vibration.vibrate(100);
+            }
+            return;
         }
+
+        // If validation passes, proceed with search
+        setValidationError('');
+        setSearchTriggered(true);
+        Keyboard.dismiss();
     };
 
     const calculateWarrantyDetails = (createdDate: string): { status: string; daysLeft: string } => {
@@ -273,7 +311,7 @@ const Warrantycheck = () => {
             );
         }
 
-        const warrantyData = warrantyResult?.data?.[0];
+        const warrantyData = warrantyResult?.data?.data?.[0];
         const warrantyInfo = warrantyData ? calculateWarrantyDetails(warrantyData.createdAt) : null;
 
         return (
@@ -397,18 +435,6 @@ const Warrantycheck = () => {
                                                 <Animated.View style={[styles.scanLine, { transform: [{ translateY: animatedValue }] }]} />
                                             </View>
 
-                                            {/* Flash/Torch button */}
-                                            {/* <TouchableOpacity
-                                                style={styles.flashButton}
-                                                onPress={toggleTorch}
-                                            >
-                                                <MaterialIcons
-                                                    name={torch ? "flash-on" : "flash-off"}
-                                                    size={24}
-                                                    color="#9DFE01"
-                                                />
-                                            </TouchableOpacity> */}
-
                                             {/* Instruction text */}
                                             <Text style={styles.scanInstructionText}>
                                                 Scan 12-digit barcode
@@ -423,7 +449,7 @@ const Warrantycheck = () => {
                                 transparent={true}
                                 visible={isModalVisible}
                                 onRequestClose={() => setIsModalVisible(false)}
-                                statusBarTranslucent={true} // This helps with proper positioning
+                                statusBarTranslucent={true}
                             >
                                 <View style={styles.modalOverlay}>
                                     <TouchableWithoutFeedback onPress={() => setIsModalVisible(false)}>
@@ -458,25 +484,6 @@ const Warrantycheck = () => {
                             </Modal>
                         </View>
 
-                        {/* Scanner section */}
-                        {/* <View className="flex items-center justify-center mt-6">
-                            <View className="relative flex items-center justify-center">
-                                <Rectangle height={290} width={290} />
-                                <View className="absolute">
-                                    <InsideBorder height={220} width={220} />
-                                </View>
-                                <View className="absolute">
-                                    <Line height={150} width={210} />
-                                </View>
-                                <View className="absolute right-0">
-                                    <Flash height={35} width={35} />
-                                </View>
-                            </View>
-                            <Text className="text-xs font-medium text-[#1F486B] mt-6">
-                                Place A Bar Code Of Serial Number Inside The View Finder Rectangle To Scan It
-                            </Text>
-                        </View> */}
-
                         {/* Search section - now positioned to be visible with keyboard */}
                         <View className={`bg-[#1F486B] rounded-t-[1.8rem] ${keyboardVisible ? 'mt-10' : 'absolute bottom-[6.5rem]'} w-full`} style={keyboardVisible ? { paddingBottom: 110 } : { height: 270 }}>
                             <Text className="text-[#9DFE01] text-xl text-center mt-6">
@@ -493,11 +500,19 @@ const Warrantycheck = () => {
                                     placeholder="Enter Serial Number"
                                     placeholderTextColor="rgba(31,72,107, 0.6)"
                                     value={serialNumber}
-                                    onChangeText={setSerialNumber}
-                                    className="border bg-[#9DFE01] text-[rgb(31,72,107)] text-xl placeholder:font-bold w-full border-[#1F486B] rounded-xl p-2 mt-2"
-                                    style={styles.input}
+                                    onChangeText={handleSerialNumberChange}
+                                    className={`border bg-[#9DFE01] text-[rgb(31,72,107)] text-xl placeholder:font-bold w-full ${validationError ? 'border-red-500' : 'border-[#1F486B]'} rounded-xl p-2 mt-2`}
+                                    style={[styles.input, validationError && styles.inputError]}
                                     keyboardType="numeric"
+                                    maxLength={12}
                                 />
+
+                                {/* Validation Error Message */}
+                                {validationError ? (
+                                    <Text style={styles.errorText}>
+                                        {validationError}
+                                    </Text>
+                                ) : null}
 
                                 <View className="flex flex-row justify-center mt-3 items-center w-full">
                                     <Button
@@ -529,9 +544,6 @@ const Warrantycheck = () => {
                 </ScrollView>
             </View>
 
-            {/* Scanned Barcode Modal */}
-
-
             {/* Sidebar and BottomSheet components */}
             <Sidebar
                 isOpen={isSidebarOpen}
@@ -555,6 +567,19 @@ const styles = StyleSheet.create({
     },
     input: {
         height: 50,
+    },
+    inputError: {
+        borderColor: '#EF4444',
+        borderWidth: 2,
+    },
+    errorText: {
+        color: '#EF4444',
+        fontSize: 14,
+        fontWeight: '500',
+        marginTop: 8,
+        textAlign: 'left',
+        width: '100%',
+        paddingLeft: 4,
     },
     button: {
         width: '50%',
@@ -611,7 +636,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-
     modalBackground: {
         position: 'absolute',
         top: 0,
@@ -620,22 +644,17 @@ const styles = StyleSheet.create({
         right: 0,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
     },
-
-
     modalContainer: {
-        // Remove absolute positioning to allow natural centering
         justifyContent: 'center',
         alignItems: 'center',
         zIndex: 1000,
     },
-
     modalContent: {
         backgroundColor: 'white',
         borderRadius: 20,
         padding: 24,
         width: 320,
         maxWidth: '90%',
-        // Remove any position-related properties
         alignItems: 'center',
         shadowColor: '#000',
         shadowOffset: {
@@ -646,16 +665,12 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         elevation: 5,
     },
-
-   
-
     modalButtons: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         width: '100%',
         gap: 12,
     },
-
     modalButton: {
         flex: 1,
         borderRadius: 10,
@@ -664,15 +679,12 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         elevation: 2,
     },
-
     buttonScanAgain: {
         backgroundColor: '#1F486B',
     },
-
     buttonConfirm: {
         backgroundColor: '#9DFE01',
     },
-
     modalButtonText: {
         color: '#FFFFFF',
         fontWeight: 'bold',
@@ -724,7 +736,6 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: 'bold',
     },
-    // If you want to make the modal message more specific:
     modalTitle: {
         fontSize: 20,
         fontWeight: 'bold',
@@ -739,8 +750,8 @@ const styles = StyleSheet.create({
         marginBottom: 24,
         textAlign: 'center',
         width: '100%',
-        letterSpacing: 1, // Spacing between digits for better readability
+        letterSpacing: 1,
     },
-
 });
+
 export default Warrantycheck;

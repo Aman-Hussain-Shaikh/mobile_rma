@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "mobile_rma",
+    "name": "Corprix RMA",
     "slug": "mobile_rma",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/SplashScreen.png",
+    "icon": "./assets/AppIcon/playstore.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/SplashScreen.png",
-      "resizeMode": "cover",
+      "image": "./assets/images/Coreprix-png.png",
+      "resizeMode": "contain",
       "backgroundColor": "#ffffff",
       "hideExponentNotification": true
     },
@@ -26,16 +26,16 @@
       "versionCode": 1,
       "permissions": ["CAMERA"],
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/Coreprix-png.png",
         "backgroundColor": "#ffffff"
       },
       "splash": {
-        "mdpi": "./assets/images/SplashScreen.png",
-        "hdpi": "./assets/images/SplashScreen.png",
-        "xhdpi": "./assets/images/SplashScreen.png",
-        "xxhdpi": "./assets/images/SplashScreen.png",
-        "xxxhdpi": "./assets/images/SplashScreen.png",
-        "resizeMode": "cover",
+        "mdpi": "./assets/AppIcon/android/mipmap-mdpi/ic_launcher.png",
+        "hdpi": "./assets/AppIcon/android/mipmap-hdpi/ic_launcher.png",
+        "xhdpi": "./assets/AppIcon/android/mipmap-xhdpi/ic_launcher.png",
+        "xxhdpi": "./assets/AppIcon/android/mipmap-xxhdpi/ic_launcher.png",
+        "xxxhdpi": "./assets/AppIcon/android/mipmap-xxxhdpi/ic_launcher.png",
+        "resizeMode": "contain",
         "backgroundColor": "#ffffff"
       }
     },
@@ -49,8 +49,8 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/SplashScreen.png",
-          "resizeMode": "cover",
+          "image": "./assets/images/Coreprix-png.png",
+          "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
       ]

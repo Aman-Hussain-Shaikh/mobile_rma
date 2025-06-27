@@ -116,11 +116,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       route: '/WarrantyPolicy',
       icon: <WarrantyPolicy width={24} height={24} fill="#9DFE01" />
     },
-    {
-      label: 'RMA Policy',
-      route: '/RMAPolicy',
-      icon: <RMAPolicy width={24} height={24} fill="#9DFE01" />
-    },
+    // {
+    //   label: 'RMA Policy',
+    //   route: '/RMAPolicy',
+    //   icon: <RMAPolicy width={24} height={24} fill="#9DFE01" />
+    // },
     {
       label: 'Contact Us',
       route: '/Contact',

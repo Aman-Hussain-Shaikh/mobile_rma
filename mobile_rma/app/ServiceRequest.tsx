@@ -1,14 +1,14 @@
-import { Text, View, TextInput, StyleSheet, TouchableOpacity, Modal, ScrollView ,Platform ,Vibration} from "react-native";
+import { Text, View, TextInput, StyleSheet, Animated, TouchableOpacity, Modal, ScrollView, Platform, Vibration, KeyboardAvoidingView, TouchableWithoutFeedback } from "react-native";
 import Avatar from "../assets/images/HomeScreen/Avatar.svg";
 import Hamburger from "../assets/images/HomeScreen/HameBurger_3Line.svg";
 import Calendar from '../assets/images/ServiceRequest/Calendar.svg';
-import AddIcon from '../assets/images/ServiceRequest/AddSignICon.svg';
+// import AddIcon from '../assets/images/ServiceRequest/AddSignICon.svg';
 import LeftArrow from '../assets/images/BackButtonLeftArrow.svg';
 import Sidebar from "@/components/Sidebar";
-import React, { useState } from "react";
-import { Button } from "react-native-paper";
+import React, { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Button } from "react-native-paper";
 import DatePicker from 'react-native-ui-datepicker';
-import Barcode from '../assets/images/ServiceRequest/BarcodeScan.svg';
+// import Barcode from '../assets/images/ServiceRequest/BarcodeScan.svg';
 import Toast from 'react-native-toast-message';
 import { useSelector } from 'react-redux';
 import { userRequest } from '@/utils/requestMethods';
@@ -18,7 +18,10 @@ import CopyIcon from '../assets/images/copy_icon.svg';
 import SuccessIcon from '../assets/images/success.svg';
 import { Link } from "expo-router";
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import type { CameraType } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'react-native';
+
+// import type { CameraType } from 'expo-camera';
 import { MaterialIcons } from "@expo/vector-icons";
 
 interface RootState {
@@ -73,12 +76,20 @@ const ServiceRequest: React.FC = () => {
     const [copySuccess, setCopySuccess] = useState(false);
     const token = useSelector((state: any) => state.user.accessToken);
     const userId = useSelector((state: any) => state.user.userId);
+
+    // console.log('Current User ID:', userId, 'Type:', typeof userId);
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [permission, requestPermission] = useCameraPermissions();
     const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
     const [showBarcodeModal, setShowBarcodeModal] = useState(false);
     const [torch, setTorch] = useState(false); // For flashlight
- 
+    const animatedValue = useRef(new Animated.Value(0)).current;
+
+    const [proofOfSaleImage, setProofOfSaleImage] = useState<string | null>(null);
+    const [proofOfFaultImage, setProofOfFaultImage] = useState<string | null>(null);
+    const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+
 
     const initialFormData: FormData = {
         serial_no: '',
@@ -102,7 +113,88 @@ const ServiceRequest: React.FC = () => {
         contact: '',
     };
 
+    useEffect(() => {
+        if (userId) {
+            setFormData(prev => ({
+                ...prev,
+                userId: userId
+            }));
+        }
+    }, [userId]);
+
+    console.log("CONSOLE LOG : USER ID : ", userId)
+
     const [formData, setFormData] = useState<FormData>(initialFormData);
+
+    const [serialNoValidation, setSerialNoValidation] = useState({
+        isValidating: false,
+        isValid: false,
+        error: null as string | null,
+        productData: null as any | null
+    });
+
+    const fetchProductBySerialNo = async (serialNo: string) => {
+        if (!serialNo || serialNo.trim() === '') {
+            setSerialNoValidation({
+                isValidating: false,
+                isValid: false,
+                error: null,
+                productData: null
+            });
+            return;
+        }
+
+        setSerialNoValidation(prev => ({
+            ...prev,
+            isValidating: true,
+            isValid: false,
+            error: null
+        }));
+
+        try {
+            const response = await userRequest({
+                url: `/product/get-product-by-sl/${serialNo}`,
+                method: "get",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            console.log("Service Request Response: ", response);
+
+            // Fixed: Check the correct path - response.data.data is the array
+            if (response?.data?.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
+                setSerialNoValidation({
+                    isValidating: false,
+                    isValid: true,
+                    error: null,
+                    productData: response.data.data[0] // Access the first item in the array
+                });
+            } else {
+                setSerialNoValidation({
+                    isValidating: false,
+                    isValid: false,
+                    error: "Serial Number not found",
+                    productData: null
+                });
+            }
+        } catch (error) {
+            console.error("Error fetching product:", error);
+            setSerialNoValidation({
+                isValidating: false,
+                isValid: false,
+                error: "Error validating serial number",
+                productData: null
+            });
+        }
+    };
+
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            fetchProductBySerialNo(formData.serial_no);
+        }, 500); // 500ms delay
+
+        return () => clearTimeout(timeoutId);
+    }, [formData.serial_no]);
+
 
     const updateFormField = (field: keyof FormData, value: string) => {
         setFormData(prev => ({
@@ -111,34 +203,110 @@ const ServiceRequest: React.FC = () => {
         }));
     };
 
-    const handleBarcodeScanned = ({ type, data }: { type: string; data: string }) => {
-        console.log(`Barcode scan attempt - Type: ${type}, Data: ${data}`);
-    
-        // Clean the data (remove whitespace)
-        const cleanedData = data.trim();
-    
-        // Check if the barcode is a 12-digit number
-        const isValid12DigitNumeric = /^\d{12}$/.test(cleanedData);
-    
-        if (isValid12DigitNumeric) {
-            console.log('Valid 12-digit barcode detected:', cleanedData);
-            setScannedBarcode(cleanedData);
-            setShowBarcodeModal(true);
-            setIsCameraOpen(false);
-    
-            // Provide feedback with vibration
-            if (Platform.OS === 'ios' || Platform.OS === 'android') {
-                Vibration.vibrate(200);
+    // Add these functions to handle image picking
+    const pickProofOfSaleImage = async () => {
+        try {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+                Toast.show({
+                    type: 'error',
+                    text1: 'Permission required',
+                    text2: 'We need access to your photos to upload proof',
+                });
+                return;
             }
-        } else {
-            // Optional: Provide feedback that an invalid barcode was scanned
-            console.log('Invalid barcode format. Expected 12-digit numeric barcode.');
+
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [4, 3],
+                quality: 0.8, // Reduced quality to make upload faster
+                allowsMultipleSelection: false,
+            });
+
+            if (!result.canceled && result.assets && result.assets.length > 0) {
+                const selectedImage = result.assets[0];
+                console.log('Selected image:', {
+                    uri: selectedImage.uri,
+                    type: selectedImage.type,
+                    fileSize: selectedImage.fileSize,
+                    width: selectedImage.width,
+                    height: selectedImage.height
+                });
+
+                setProofOfSaleImage(selectedImage.uri);
+            }
+        } catch (error) {
+            console.error('Error picking image:', error);
             Toast.show({
                 type: 'error',
-                text1: 'Invalid Barcode',
-                text2: 'Please scan a valid 12-digit barcode.',
+                text1: 'Error',
+                text2: 'Failed to select image'
             });
         }
+    };
+
+    const pickProofOfFaultImage = async () => {
+        try {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+                Toast.show({
+                    type: 'error',
+                    text1: 'Permission required',
+                    text2: 'We need access to your photos to upload proof',
+                });
+                return;
+            }
+
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [4, 3],
+                quality: 0.8, // Reduced quality to make upload faster
+                allowsMultipleSelection: false,
+            });
+
+            if (!result.canceled && result.assets && result.assets.length > 0) {
+                const selectedImage = result.assets[0];
+                console.log('Selected image:', {
+                    uri: selectedImage.uri,
+                    type: selectedImage.type,
+                    fileSize: selectedImage.fileSize,
+                    width: selectedImage.width,
+                    height: selectedImage.height
+                });
+
+                setProofOfFaultImage(selectedImage.uri);
+            }
+        } catch (error) {
+            console.error('Error picking image:', error);
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Failed to select image'
+            });
+        }
+    };
+
+    const handleBarcodeScanned = ({ type, data }: { type: string; data: string }) => {
+        const cleanedData = data.trim();
+
+        if (!cleanedData) {
+            Toast.show({
+                type: 'error',
+                text1: 'Empty Barcode',
+                text2: 'No barcode detected'
+            });
+            return;
+        }
+
+        setScannedBarcode(cleanedData);
+        setShowBarcodeModal(true);
+        setIsCameraOpen(false);
+        Vibration.vibrate(200);
+
+        // Log for debugging
+        console.log(`Scanned ${type} barcode: ${cleanedData}`);
     };
 
     const handleBarcodeConfirm = () => {
@@ -176,6 +344,19 @@ const ServiceRequest: React.FC = () => {
             return "Good Night";
         }
     };
+
+    const CameraPermissionView = () => (
+        <View style={styles.cameraPermissionContainer}>
+            <Text style={styles.message}>We need your permission to use the camera</Text>
+            <Button
+                mode="contained"
+                onPress={requestPermission}
+                style={styles.permissionButton}
+            >
+                Grant Permission
+            </Button>
+        </View>
+    );
 
     const handleCopyToClipboard = async () => {
         if (rmaId === null) {
@@ -223,12 +404,32 @@ const ServiceRequest: React.FC = () => {
         }));
     };
 
+
     const submitRequest = async () => {
-        if (!userId) {
+        if (!userId || isNaN(Number(userId))) {
             Toast.show({
                 type: 'error',
-                text1: 'Error',
-                text2: 'User ID is required. Please ensure you are logged in.'
+                text1: 'Authentication Error',
+                text2: 'Invalid user session. Please log in again.'
+            });
+            return;
+        }
+
+        // Validate required fields and images
+        if (!proofOfSaleImage) {
+            Toast.show({
+                type: 'error',
+                text1: 'Proof Required',
+                text2: 'Please upload Proof of Sale Date'
+            });
+            return;
+        }
+
+        if (!proofOfFaultImage) {
+            Toast.show({
+                type: 'error',
+                text1: 'Proof Required',
+                text2: 'Please upload Proof of Fault Description'
             });
             return;
         }
@@ -261,51 +462,115 @@ const ServiceRequest: React.FC = () => {
 
         setLoading(true);
         try {
-            const requestData = {
-                serial_no: formData.serial_no,
-                tag_no: formData.tag_no || '',
-                dpp_no: formData.dpp_no || '',
-                sale_date: formatDateForAPI(formData.sale_date),
-                fault_desc: formData.fault_desc,
-                status: 'pending',
-                cp_name: formData.cp_name,
-                cp_number: formData.cp_number,
-                cp_email: formData.cp_email,
-                street: formData.street,
-                city: formData.city,
-                state: formData.state,
-                postal_code: formData.postal_code,
-                country: formData.country,
-                name: formData.name,
-                address: formData.address,
-                pincode: formData.pincode,
-                contact: formData.contact,
-                userId: userId
+            // Create proper FormData for React Native
+            const formDataToSend = new FormData();
+
+            // Helper function to get file extension and mime type
+            const getFileInfo = (uri: string) => {
+                const filename = uri.split('/').pop() || `file_${Date.now()}`;
+                const match = /\.(\w+)$/.exec(filename);
+                const extension = match ? match[1].toLowerCase() : 'jpg';
+
+                // Map common extensions to MIME types
+                const mimeTypes: { [key: string]: string } = {
+                    'jpg': 'image/jpeg',
+                    'jpeg': 'image/jpeg',
+                    'png': 'image/png',
+                    'gif': 'image/gif',
+                    'bmp': 'image/bmp',
+                    'webp': 'image/webp'
+                };
+
+                return {
+                    name: filename,
+                    type: mimeTypes[extension] || 'image/jpeg'
+                };
             };
 
-            console.log('Request Data:', requestData);
+            // Append all text fields
+            formDataToSend.append('userId', userId.toString());
+            formDataToSend.append('serial_no', formData.serial_no);
+            formDataToSend.append('tag_no', formData.tag_no || '');
+            formDataToSend.append('dpp_no', formData.dpp_no || '');
+            formDataToSend.append('sale_date', formatDateForAPI(formData.sale_date) || '');
+            formDataToSend.append('fault_desc', formData.fault_desc);
+            formDataToSend.append('status', 'pending');
+            formDataToSend.append('cp_name', formData.cp_name);
+            formDataToSend.append('cp_number', formData.cp_number);
+            formDataToSend.append('cp_email', formData.cp_email);
+            formDataToSend.append('street', formData.street);
+            formDataToSend.append('city', formData.city);
+            formDataToSend.append('state', formData.state);
+            formDataToSend.append('postal_code', formData.postal_code);
+            formDataToSend.append('country', formData.country);
 
-            const response = await userRequest({
-                url: '/request/post-request',
-                method: 'post',
+            // Service center fields
+            formDataToSend.append('name', formData.name);
+            formDataToSend.append('address', formData.address);
+            formDataToSend.append('pincode', formData.pincode);
+            formDataToSend.append('contact', formData.contact);
+
+            // FIXED: Proper file handling for React Native
+            if (proofOfSaleImage) {
+                const fileInfo = getFileInfo(proofOfSaleImage);
+
+                // Correct way to append files in React Native
+                formDataToSend.append('proof_of_sale_date', {
+                    uri: proofOfSaleImage,
+                    type: fileInfo.type,
+                    name: fileInfo.name,
+                } as any);
+            }
+
+            if (proofOfFaultImage) {
+                const fileInfo = getFileInfo(proofOfFaultImage);
+
+                // Correct way to append files in React Native
+                formDataToSend.append('attachment', {
+                    uri: proofOfFaultImage,
+                    type: fileInfo.type,
+                    name: fileInfo.name,
+                } as any);
+            }
+
+            // Enhanced logging for debugging
+            console.log('=== FORM DATA DEBUG ===');
+            console.log('- userId:', userId.toString());
+            console.log('- serial_no:', formData.serial_no);
+            console.log('- proofOfSaleImage URI:', proofOfSaleImage);
+            console.log('- proofOfFaultImage URI:', proofOfFaultImage);
+            console.log('- FormData keys:', Object.keys(formDataToSend));
+
+            // Alternative: Use fetch directly instead of userRequest for better control
+            const response = await fetch(`https://rma-backend-98151578937.asia-south1.run.app/request/post-request`, {
+                method: 'POST',
                 headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json'
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'multipart/form-data',
+                    // Note: Don't set Content-Type manually, let fetch handle it
                 },
-                data: requestData
+                body: formDataToSend,
             });
 
-            if (response?.data?.rmainfo?.id) {
-                setRmaId(response.data.rmainfo.id);
+            const responseData = await response.json();
+
+            if (response.ok && responseData?.rmainfo?.barcode_number) {
+                setRmaId(responseData.rmainfo.barcode_number);
                 Toast.show({
                     type: 'success',
                     text1: 'Success',
                     text2: 'RMA request submitted successfully!'
                 });
                 setStep(3);
-                return response.data.rmainfo.id;
+            } else {
+                throw new Error(responseData?.message || 'Submission failed');
             }
+
         } catch (error: any) {
+            console.error('=== SUBMISSION ERROR ===');
+            console.error('Error details:', error);
+            console.error('Error response:', error.response?.data);
+
             const errorMessage = error.response?.data?.errors?.map((err: any) => err.message).join(', ') ||
                 error.response?.data?.message ||
                 error.message ||
@@ -316,23 +581,41 @@ const ServiceRequest: React.FC = () => {
                 text1: 'Error',
                 text2: errorMessage
             });
-            console.error('Submission Error:', error.response?.data || error);
-            throw error;
         } finally {
             setLoading(false);
         }
     };
 
-    const handleSubmit = async () => {
-        try {
-            const newRmaId = await submitRequest();
-            if (newRmaId) {
-                setStep(3);
-            }
-        } catch (error) {
-            console.error('Submission failed:', error);
+    useEffect(() => {
+        let animation;
+
+        if (isCameraOpen) {
+            // Reset animation value when camera opens
+            animatedValue.setValue(0);
+
+            animation = Animated.loop(
+                Animated.sequence([
+                    Animated.timing(animatedValue, {
+                        toValue: 200,
+                        duration: 1500,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(animatedValue, {
+                        toValue: 0,
+                        duration: 1500,
+                        useNativeDriver: true,
+                    }),
+                ])
+            );
+            animation.start();
         }
-    };
+
+        return () => {
+            if (animation) {
+                animation.stop();
+            }
+        };
+    }, [isCameraOpen]); // Add isCameraOpen as dependency
 
     if (!permission?.granted) {
         return (
@@ -368,116 +651,147 @@ const ServiceRequest: React.FC = () => {
                         value={formData.serial_no}
                         onChangeText={(value) => updateFormField('serial_no', value)}
                         placeholder="Enter Serial Number"
-                        placeholderTextColor="#9DFE01"
+                        placeholderTextColor="rgba(157, 254, 1, 0.6)"
                         className="border bg-[#1F486B] text-[#9DFE01] text-lg border-[#1F486B] rounded-xl p-3 mt-2"
                         style={styles.input}
                     />
                     <TouchableOpacity
-                        className="absolute right-0 mt-4 p-1"
+                        className="absolute right-0 mt-0 p-1"
                         onPress={() => setIsCameraOpen(true)}
+                        style={styles.barcodeButton}
                     >
-                        <Barcode width={35} height={35} />
+                        <MaterialIcons name="qr-code-scanner" size={24} color="#9DFE01" />
                     </TouchableOpacity>
-
-                    
+                    ``
+                    {/* Validation status indicator */}
+                    {serialNoValidation.isValidating && (
+                        <ActivityIndicator
+                            size="small"
+                            color="#9DFE01"
+                            style={styles.validationIndicator}
+                        />
+                    )}
                 </View>
+
+                {/* Validation message */}
+                {formData.serial_no && !serialNoValidation.isValidating && (
+                    <View style={styles.validationMessage}>
+                        {serialNoValidation.isValid && serialNoValidation.productData ? (
+                            <View style={styles.validMessage}>
+                                <Text style={styles.validText}>✅ Serial Number Valid</Text>
+                                {/* <Text style={styles.productInfo}>
+                                    Model No: {serialNoValidation.productData?.model_no}
+                                </Text> */}
+                                {serialNoValidation.productData?.date_of_billing && (
+                                    <Text style={styles.productInfo}>
+                                        Date of Billing: {serialNoValidation.productData?.date_of_billing}
+                                    </Text>
+                                )}
+                            </View>
+                        ) : serialNoValidation.error ? (
+                            <Text style={styles.errorText}>❌ {serialNoValidation.error}</Text>
+                        ) : null}
+                    </View>
+                )}
 
                 <Modal
-    visible={isCameraOpen}
-    transparent={true}
-    animationType="slide"
->
-    <View style={styles.modalContainer}>
-        <View style={styles.cameraContainer}>
-            {permission?.granted && (
-                <CameraView
-                    style={styles.camera}
-                    barcodeScannerSettings={{
-                        barcodeTypes: ["code128", "ean13", "code39"], // Supported barcode types
-                    }}
-                    onBarcodeScanned={scannedBarcode ? undefined : handleBarcodeScanned}
-                    torch={torch ? "on" : "off"} // Flashlight control
+                    visible={isCameraOpen}
+                    transparent={true}
+                    animationType="slide"
+                    statusBarTranslucent={true}
                 >
-                    <TouchableOpacity
-                        style={styles.closeButton}
-                        onPress={() => setIsCameraOpen(false)}
+                    <KeyboardAvoidingView
+                        style={{ flex: 1 }}
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     >
-                        <Text style={styles.closeButtonText}>✕</Text>
-                    </TouchableOpacity>
+                        <View style={styles.modalOverlay}>
+                            <View style={styles.cameraContainer}>
+                                {permission?.granted ? (
+                                    <CameraView
+                                        style={styles.camera}
+                                        barcodeScannerSettings={{
+                                            barcodeTypes: [
+                                                "code128",   // For alphanumeric (most common)
+                                                "ean13",     // For product barcodes
+                                                "code39",    // For alphanumeric
+                                                "upc_a",     // For 12-digit UPC
+                                                "qr",        // For QR codes
+                                                "codabar",   // For numeric with start/stop chars
+                                                "itf14"      // For shipping labels
+                                            ],
+                                        }}
+                                        onBarcodeScanned={scannedBarcode ? undefined : handleBarcodeScanned}
+                                        enableTorch={torch}
+                                    >
+                                        <View style={styles.scannerOverlay}>
+                                            <View style={styles.scannerFrame}>
+                                                <Animated.View style={[styles.scanLine, { transform: [{ translateY: animatedValue }] }]} />
+                                            </View>
 
-                    {/* Flashlight Button */}
-                    {/* <TouchableOpacity
-                        style={styles.flashButton}
-                        onPress={() => setTorch((prev) => !prev)}
-                    >
-                        <MaterialIcons
-                            name={torch ? "flash-on" : "flash-off"}
-                            size={24}
-                            color="#9DFE01"
-                        />
-                    </TouchableOpacity> */}
 
-                    {/* Instruction Text */}
-                    <Text style={styles.scanInstructionText}>
-                        Scan 12-digit barcode
-                    </Text>
-                </CameraView>
-            )}
-        </View>
-    </View>
-</Modal>
+                                            <Text style={styles.scanInstructionText}>
+                                                Scan 12-digit barcode
+                                            </Text>
+                                        </View>
+                                    </CameraView>
+                                ) : (
+                                    <CameraPermissionView />
+                                )}
+                            </View>
 
-<Modal
-    visible={showBarcodeModal}
-    transparent={true}
-    animationType="slide"
->
-    <View style={styles.modalContainer}>
-        <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Scanned Barcode</Text>
-            <Text style={styles.modalBarcode}>{scannedBarcode}</Text>
+                            <TouchableOpacity
+                                style={styles.closeButton}
+                                onPress={() => setIsCameraOpen(false)}
+                            >
+                                <Text style={styles.closeButtonText}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </KeyboardAvoidingView>
+                </Modal>
 
-            <View style={styles.modalButtons}>
-                <TouchableOpacity
-                    style={[styles.modalButton, styles.buttonScanAgain]}
-                    onPress={handleScanAgain}
+                <Modal
+                    animationType="fade"
+                    transparent={true}
+                    visible={showBarcodeModal}
+                    onRequestClose={() => setShowBarcodeModal(false)}
+                    statusBarTranslucent={true}
                 >
-                    <Text style={styles.modalButtonText}>Scan Again</Text>
-                </TouchableOpacity>
+                    <View style={styles.modalOverlay}>
+                        <TouchableWithoutFeedback onPress={() => setShowBarcodeModal(false)}>
+                            <View style={styles.modalBackground} />
+                        </TouchableWithoutFeedback>
 
-                <TouchableOpacity
-                    style={[styles.modalButton, styles.buttonConfirm]}
-                    onPress={handleBarcodeConfirm}
-                >
-                    <Text style={styles.modalButtonText}>OK</Text>
-                </TouchableOpacity>
-            </View>
-        </View>
-    </View>
-</Modal>
+                        <View style={styles.modalContainer}>
+                            <View style={styles.modalContent}>
+                                <Text style={styles.modalTitle}>Scanned Barcode</Text>
+                                <Text style={styles.modalBarcode}>{scannedBarcode}</Text>
+
+                                <View style={styles.modalButtons}>
+                                    <TouchableOpacity
+                                        style={[styles.modalButton, styles.buttonScanAgain]}
+                                        onPress={handleScanAgain}
+                                    >
+                                        <Text style={styles.modalButtonText}>Scan Again</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[styles.modalButton, styles.buttonConfirm]}
+                                        onPress={handleBarcodeConfirm}
+                                    >
+                                        <Text style={[styles.modalButtonText, { color: '#1F486B' }]}>
+                                            OK
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
 
 
-                <Text className="text-xl ml-2 font-normal text-[#1F486B]">Product :</Text>
+                <Text className="text-base ml-2 font-normal text-[#1F486B]">Product :  {serialNoValidation.productData?.model_no}</Text>
 
-                <View className="mb-2 w-full relative">
-                    <TextInput
-                        placeholder="Enter Tag Number (Optional)"
-                        onChangeText={(value) => updateFormField('tag_no', value)}
-                        placeholderTextColor="rgba(157, 254, 1, 0.6)"
-                        className="border bg-[#1F486B] text-[#9DFE01] text-lg border-[#1F486B] rounded-xl p-3 mt-2"
-                        style={styles.input}
-                    />
-                </View>
 
-                <View className="mb-2 w-full relative">
-                    <TextInput
-                        placeholder="Enter Your DPP Code (Optional)"
-                        placeholderTextColor="rgba(157, 254, 1, 0.6)"
-                        onChangeText={(value) => updateFormField('dpp_no', value)}
-                        className="border bg-[#1F486B] text-[#9DFE01] text-lg border-[#1F486B] rounded-xl p-3 mt-2"
-                        style={styles.input}
-                    />
-                </View>
 
                 <View className="mb-2 w-12/12 relative ">
                     <TouchableOpacity
@@ -512,7 +826,8 @@ const ServiceRequest: React.FC = () => {
                                 <Text style={styles.datePickerTitle}>Select Date</Text>
                                 <TouchableOpacity
                                     onPress={() => setDatePickerVisible(false)}
-                                    style={styles.closeButton}
+                                    className="right-0"
+                                // style={styles.closeButton}
                                 >
                                     <Text style={styles.closeButtonText}>✕</Text>
                                 </TouchableOpacity>
@@ -536,37 +851,88 @@ const ServiceRequest: React.FC = () => {
                         placeholderTextColor="rgba(157, 254, 1, 0.6)"
                         className="border bg-[#1F486B] text-[#9DFE01] text-lg border-[#1F486B] rounded-xl px-3 py-2.5 mt-2"
                         style={styles.input}
+                        value={proofOfSaleImage ? 'Image selected' : ''}
+                        editable={false}
                     />
-                    <View className="absolute right-1 rounded-xl mt-3 bg-[#9DFE01] w-24 flex items-center justify-center h-12">
+                    <TouchableOpacity
+                        className="absolute right-1 rounded-xl mt-3 bg-[#9DFE01] w-24 flex items-center justify-center h-12"
+                        onPress={pickProofOfSaleImage}
+                    >
                         <Text className="text-[#1F486B] text-lg font-medium">Browse</Text>
-                    </View>
+                    </TouchableOpacity>
                 </View>
+
+                {proofOfSaleImage && (
+                    <TouchableOpacity onPress={() => setPreviewImage(proofOfSaleImage)}>
+                        <Image
+                            source={{ uri: proofOfSaleImage }}
+                            style={imagePreviewStyles.imagePreview}
+                        />
+                    </TouchableOpacity>
+                )}
 
                 <View className="mb-2 w-full relative">
                     <TextInput
-                        placeholder="Fault Description*"
+                        placeholder="Enter Fault Description*"
+                        value={formData.fault_desc}
+                        onChangeText={(value) => updateFormField('fault_desc', value)}
                         placeholderTextColor="rgba(157, 254, 1, 0.6)"
                         className="border bg-[#1F486B] text-[#9DFE01] text-lg border-[#1F486B] rounded-xl p-3 mt-2"
-                        style={styles.input}
-                        onChangeText={(value) => updateFormField('fault_desc', value)}
+                        style={[styles.input, { height: 90, textAlignVertical: 'top' }]}
                         multiline={true}
                         numberOfLines={3}
                     />
                 </View>
 
+
+
+                {/* Proof Of Fault Description Field */}
                 <View className="mb-2 w-full relative">
                     <TextInput
                         placeholder="Proof Of Fault Description*"
                         placeholderTextColor="rgba(157, 254, 1, 0.6)"
-                        className="border bg-[#1F486B] text-[#9DFE01] text-lg border-[#1F486B] rounded-xl p-3 mt-2"
+                        className="border bg-[#1F486B] text-[#9DFE01] text-lg border-[#1F486B] rounded-xl px-3 py-2.5 mt-2"
                         style={styles.input}
+                        value={proofOfFaultImage ? 'Image selected' : ''}
+                        editable={false}
                     />
-                    <View className="absolute right-1 rounded-xl mt-3 bg-[#9DFE01] w-24 flex items-center justify-center h-12">
+                    <TouchableOpacity
+                        className="absolute right-1 rounded-xl mt-3 bg-[#9DFE01] w-24 flex items-center justify-center h-12"
+                        onPress={pickProofOfFaultImage}
+                    >
                         <Text className="text-[#1F486B] text-lg font-medium">Browse</Text>
-                    </View>
+                    </TouchableOpacity>
                 </View>
 
-                <View className="mb-2 w-full relative">
+                {proofOfFaultImage && (
+                    <TouchableOpacity onPress={() => setPreviewImage(proofOfFaultImage)}>
+                        <Image
+                            source={{ uri: proofOfFaultImage }}
+                            style={imagePreviewStyles.imagePreview}
+                        />
+                    </TouchableOpacity>
+                )}
+
+                <Modal
+                    visible={!!previewImage}
+                    transparent={true}
+                    onRequestClose={() => setPreviewImage(null)}
+                >
+                    <View style={imagePreviewStyles.previewModalContainer}>
+                        <Image
+                            source={{ uri: previewImage || '' }}
+                            style={imagePreviewStyles.previewImage}
+                        />
+                        <TouchableOpacity
+                            style={imagePreviewStyles.closePreviewButton}
+                            onPress={() => setPreviewImage(null)}
+                        >
+                            <Text style={{ color: '#9DFE01', fontSize: 20 }}>✕</Text>
+                        </TouchableOpacity>
+                    </View>
+                </Modal>
+
+                {/* <View className="mb-2 w-full relative">
                     <TextInput
                         placeholder="Address"
                         placeholderTextColor="rgba(157, 254, 1, 0.6)"
@@ -576,17 +942,26 @@ const ServiceRequest: React.FC = () => {
                     <View className="absolute right-2 mt-5 bg-[#9DFE01] rounded-full p-1">
                         <AddIcon width={22} height={22} />
                     </View>
-                </View>
+                </View> */}
 
                 <View className="flex flex-row justify-between mb-5 items-center w-full">
                     <Button
                         mode="contained"
                         contentStyle={styles.buttonContent}
                         labelStyle={styles.buttonLabel}
-                        style={styles.button}
+                        style={[
+                            styles.button,
+                            (!serialNoValidation.isValid || serialNoValidation.isValidating || !formData.serial_no.trim()) &&
+                            styles.disabledButton
+                        ]}
                         onPress={() => setStep(2)}
+                        disabled={!serialNoValidation.isValid || serialNoValidation.isValidating || !formData.serial_no.trim()}
                     >
-                        Proceed
+                        {serialNoValidation.isValidating ? (
+                            <ActivityIndicator color="#9DFE01" />
+                        ) : (
+                            'Proceed'
+                        )}
                     </Button>
                 </View>
             </View>
@@ -801,6 +1176,87 @@ const styles = StyleSheet.create({
         width: '90%',
         maxWidth: 400,
     },
+
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalBackground: {
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+    },
+    scannerOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    scannerFrame: {
+        width: 220,
+        height: 220,
+        borderWidth: 2,
+        borderColor: '#9DFE01',
+        backgroundColor: 'transparent',
+    },
+    barcodeButton: {
+        position: 'absolute',
+        right: 10,
+        top: 15,
+        backgroundColor: 'rgba(157, 254, 1, 0.2)',
+        borderRadius: 8,
+        padding: 5,
+    },
+    scanLine: {
+        height: 2,
+        width: '100%',
+        backgroundColor: '#9DFE01',
+    },
+    flashButton: {
+        position: 'absolute',
+        right: 16,
+        top: 16,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        borderRadius: 20,
+        padding: 8,
+    },
+    cameraPermissionContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#f0f0f0',
+        borderRadius: 20,
+        width: '100%',
+        height: '100%',
+    },
+    message: {
+        fontSize: 16,
+        color: '#1F486B',
+        textAlign: 'center',
+        marginBottom: 20,
+        paddingHorizontal: 20,
+    },
+    permissionButton: {
+        backgroundColor: '#1F486B',
+        borderColor: '#9DFE01',
+        borderWidth: 1,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+    },
+    scanInstructionText: {
+        position: 'absolute',
+        bottom: 20,
+        color: '#9DFE01',
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        padding: 8,
+        borderRadius: 4,
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
     datePickerHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -814,11 +1270,12 @@ const styles = StyleSheet.create({
     },
     closeButton: {
         position: 'absolute',
-        top: 40,
+        bottom: 16,
         right: 20,
         backgroundColor: 'rgba(255, 255, 255, 0.8)',
-        borderRadius: 20,
-        padding: 10,
+        borderRadius: 100,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
     },
     closeButtonText: {
         fontSize: 20,
@@ -873,7 +1330,7 @@ const styles = StyleSheet.create({
     camera: {
         flex: 1,
     },
-   
+
     modalContent: {
         backgroundColor: 'white',
         borderRadius: 20,
@@ -925,27 +1382,67 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         textAlign: 'center',
     },
-
-    
-    flashButton: {
+    validationIndicator: {
         position: 'absolute',
-        right: 16,
-        top: 16,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        borderRadius: 20,
-        padding: 8,
+        right: 50,
+        top: 15,
     },
-    scanInstructionText: {
-        position: 'absolute',
-        bottom: 20,
-        color: '#9DFE01',
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        padding: 8,
-        borderRadius: 4,
+    validationMessage: {
+        marginTop: 5,
+        marginLeft: 10,
+    },
+    validMessage: {
+        flexDirection: 'column',
+    },
+    validText: {
+        color: '#4CAF50',
         fontSize: 14,
-        fontWeight: 'bold',
     },
-   
-   
+    productInfo: {
+        color: '#9DFE01',
+        fontSize: 14,
+        marginTop: 2,
+    },
+
+    disabledButton: {
+        backgroundColor: '#6c757d',
+        borderColor: '#6c757d',
+    },
 });
+
+const imagePreviewStyles = StyleSheet.create({
+    imagePreview: {
+        width: 100,
+        height: 100,
+        borderRadius: 8,
+        marginTop: 8,
+    },
+    previewModalContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.9)',
+    },
+    previewImage: {
+        width: '90%',
+        height: '80%',
+        resizeMode: 'contain',
+    },
+    closePreviewButton: {
+        position: 'absolute',
+        top: 40,
+        right: 20,
+        backgroundColor: '#1F486B',
+        borderRadius: 20,
+        padding: 10,
+    },
+    message: {
+        fontSize: 16,
+        color: '#1F486B',
+        textAlign: 'center',
+        marginBottom: 20,
+        paddingHorizontal: 20,
+    },
+});
+
 export default ServiceRequest;

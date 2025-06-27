@@ -10,21 +10,21 @@ import Toast from 'react-native-toast-message';
 
 // Define interfaces for type safety
 interface ApiError {
-  status?: number;
-  data?: {
+    status?: number;
+    data?: {
+        message?: string;
+        type?: string;
+    };
     message?: string;
     type?: string;
-  };
-  message?: string;
-  type?: string;
 }
 
 interface FormData {
-  fullName: string;
-  email: string;
-  telephone: string;
-  password: string;
-  confirmPassword: string;
+    fullName: string;
+    email: string;
+    telephone: string;
+    password: string;
+    confirmPassword: string;
 }
 
 export default function Register(): React.JSX.Element {
@@ -36,7 +36,7 @@ export default function Register(): React.JSX.Element {
         password: '',
         confirmPassword: ''
     });
-    
+
     // UI state management
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
@@ -59,28 +59,39 @@ export default function Register(): React.JSX.Element {
 
     // Validation function
     const validateForm = () => {
-        if (!formData.fullName) {
+        if (!formData.fullName.trim()) {
             showToast('error', 'Validation Error', 'Full name is required');
             return false;
         }
 
-        if (!formData.email) {
+        if (!formData.email.trim()) {
             showToast('error', 'Validation Error', 'Email is required');
             return false;
         }
 
-        if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(formData.email)) {
+        if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(formData.email.trim())) {
             showToast('error', 'Validation Error', 'Invalid email address');
             return false;
         }
 
-        if (!formData.telephone) {
+        if (!formData.telephone.trim()) {
             showToast('error', 'Validation Error', 'Phone number is required');
+            return false;
+        }
+
+        // Basic phone validation (adjust regex based on your requirements)
+        if (!/^\+?[\d\s\-\(\)]{10,}$/.test(formData.telephone.trim())) {
+            showToast('error', 'Validation Error', 'Invalid phone number format');
             return false;
         }
 
         if (!formData.password) {
             showToast('error', 'Validation Error', 'Password is required');
+            return false;
+        }
+
+        if (formData.password.length < 6) {
+            showToast('error', 'Validation Error', 'Password must be at least 6 characters long');
             return false;
         }
 
@@ -97,6 +108,15 @@ export default function Register(): React.JSX.Element {
         return true;
     };
 
+    // Split full name into first and last name
+    const splitFullName = (fullName: string) => {
+        const nameParts = fullName.trim().split(/\s+/);
+        return {
+            firstname: nameParts[0] || '',
+            lastname: nameParts.slice(1).join(' ') || ''
+        };
+    };
+
     // Handle registration
     const handleRegister = async () => {
         if (!validateForm()) return;
@@ -104,24 +124,41 @@ export default function Register(): React.JSX.Element {
         setLoading(true);
 
         try {
+            const { firstname, lastname } = splitFullName(formData.fullName);
+
+            const requestData = {
+                email: formData.email.trim().toLowerCase(),
+                telephone: formData.telephone.trim(),
+                firstname: firstname,
+                lastname: lastname,
+                userType: "Customer",
+                password: formData.password
+            };
+
+            console.log('Sending registration data:', requestData); // Debug log
+
             const response = await publicRequest({
                 url: '/auth/register',
-                method: 'post',
-                data: {
-                    email: formData.email,
-                    telephone: formData.telephone,
-                    firstname: formData.fullName.trim().split(/\s+/)[0],
-                    lastname: formData.fullName.trim().split(/\s+/).slice(1).join(" ") || "",
-                    userType: "Customer",
-                    password: formData.password
-                }
+                method: 'POST',
+                data: requestData
             });
+
+            console.log('Registration response:', response); // Debug log
 
             showToast(
                 'success',
                 'Success',
                 'Registration successful! Please check your email for verification.'
             );
+
+            // Clear form data
+            setFormData({
+                fullName: '',
+                email: '',
+                telephone: '',
+                password: '',
+                confirmPassword: ''
+            });
 
             // Navigate to login after success
             setTimeout(() => {
@@ -130,29 +167,40 @@ export default function Register(): React.JSX.Element {
 
         } catch (error: any) {
             console.error('Registration error:', error);
-            
+            console.error('Error response:', error.response); // Debug log
+
             // Handle different error cases
-            switch (error.response?.status) {
-                case 403:
-                    if (error.response?.data?.type === 'email') {
-                        showToast('error', 'Registration Failed', 'This email is already registered. Please use a different email or login.');
-                    } else if (error.response?.data?.type === 'telephone') {
-                        showToast('error', 'Registration Failed', 'This phone number is already registered. Please use a different number.');
-                    } else {
-                        showToast('error', 'Registration Failed', error.response?.data?.message || 'Registration failed. Please try again.');
-                    }
-                    break;
-                    
-                case 400:
-                    showToast('error', 'Invalid Input', error.response?.data?.message || 'Please check your details.');
-                    break;
-                    
-                case 500:
-                    showToast('error', 'Server Error', 'Server error. Please try again later.');
-                    break;
-                    
-                default:
-                    showToast('error', 'Error', 'An unexpected error occurred. Please try again.');
+            if (error.response) {
+                const { status, data } = error.response;
+
+                switch (status) {
+                    case 403:
+                        if (data?.type === 'email') {
+                            showToast('error', 'Registration Failed', 'This email is already registered. Please use a different email or login.');
+                        } else if (data?.type === 'telephone') {
+                            showToast('error', 'Registration Failed', 'This phone number is already registered. Please use a different number.');
+                        } else {
+                            showToast('error', 'Registration Failed', data?.message || 'Registration failed. Please try again.');
+                        }
+                        break;
+
+                    case 400:
+                        showToast('error', 'Invalid Input', data?.message || 'Please check your details and try again.');
+                        break;
+
+                    case 500:
+                        showToast('error', 'Server Error', 'Server error. Please try again later.');
+                        break;
+
+                    default:
+                        showToast('error', 'Error', data?.message || 'An unexpected error occurred. Please try again.');
+                }
+            } else if (error.request) {
+                // Network error
+                showToast('error', 'Network Error', 'Unable to connect to server. Please check your internet connection.');
+            } else {
+                // Other error
+                showToast('error', 'Error', 'An unexpected error occurred. Please try again.');
             }
         } finally {
             setLoading(false);
@@ -181,7 +229,8 @@ export default function Register(): React.JSX.Element {
                             placeholder="Enter your full name"
                             className="border border-[#1F486B] rounded-md p-4 mt-2"
                             value={formData.fullName}
-                            onChangeText={(text) => setFormData({...formData, fullName: text})}
+                            onChangeText={(text) => setFormData({ ...formData, fullName: text })}
+                            autoCapitalize="words"
                         />
                     </View>
 
@@ -194,9 +243,10 @@ export default function Register(): React.JSX.Element {
                             placeholder="Enter your email"
                             className="border border-[#1F486B] rounded-md p-4 mt-2"
                             value={formData.email}
-                            onChangeText={(text) => setFormData({...formData, email: text})}
+                            onChangeText={(text) => setFormData({ ...formData, email: text })}
                             keyboardType="email-address"
                             autoCapitalize="none"
+                            autoCorrect={false}
                         />
                     </View>
 
@@ -209,7 +259,7 @@ export default function Register(): React.JSX.Element {
                             placeholder="Enter your contact number"
                             className="border border-[#1F486B] rounded-md p-4 mt-2"
                             value={formData.telephone}
-                            onChangeText={(text) => setFormData({...formData, telephone: text})}
+                            onChangeText={(text) => setFormData({ ...formData, telephone: text })}
                             keyboardType="phone-pad"
                         />
                     </View>
@@ -225,13 +275,15 @@ export default function Register(): React.JSX.Element {
                                 secureTextEntry={!showPassword}
                                 className="border border-[#1F486B] rounded-md p-4 mt-2 pr-12"
                                 value={formData.password}
-                                onChangeText={(text) => setFormData({...formData, password: text})}
+                                onChangeText={(text) => setFormData({ ...formData, password: text })}
+                                autoCapitalize="none"
                             />
-                            <Pressable 
+                            <Pressable
                                 onPress={() => setShowPassword(!showPassword)}
                                 className="absolute right-4 top-1/2 transform -translate-y-1/2"
+                                style={{ top: '50%', marginTop: 8 }}
                             >
-                                <MaterialIcons 
+                                <MaterialIcons
                                     name={showPassword ? "visibility-off" : "visibility"}
                                     size={24}
                                     color="#1F486B"
@@ -251,13 +303,15 @@ export default function Register(): React.JSX.Element {
                                 secureTextEntry={!showConfirmPassword}
                                 className="border border-[#1F486B] rounded-md p-4 mt-2 pr-12"
                                 value={formData.confirmPassword}
-                                onChangeText={(text) => setFormData({...formData, confirmPassword: text})}
+                                onChangeText={(text) => setFormData({ ...formData, confirmPassword: text })}
+                                autoCapitalize="none"
                             />
-                            <Pressable 
+                            <Pressable
                                 onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                                 className="absolute right-4 top-1/2 transform -translate-y-1/2"
+                                style={{ top: '50%', marginTop: 8 }}
                             >
-                                <MaterialIcons 
+                                <MaterialIcons
                                     name={showConfirmPassword ? "visibility-off" : "visibility"}
                                     size={24}
                                     color="#1F486B"
